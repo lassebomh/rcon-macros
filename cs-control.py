@@ -1,5 +1,4 @@
-import sys
-import json
+import sys, json, re
 from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
@@ -50,7 +49,7 @@ class MacroApplication(QMainWindow):
 
         self.command_edit = QLineEdit()
         self.command_edit.setPlaceholderText("Run command...")
-        self.command_edit.returnPressed.connect(self.execute_single_command)
+        self.command_edit.returnPressed.connect(self.log_single_command)
         output_layout.addWidget(self.command_edit)
 
         self.output_area = QPlainTextEdit()
@@ -63,20 +62,26 @@ class MacroApplication(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
-    def execute_single_command(self):
+    def execute(self, commands):
+        try:
+            return eval(commands), None
+        except Exception as error:
+            return f"Error: {error}", error
+
+    def log_single_command(self):
         command = self.command_edit.text()
-        self.execute_commands(command, command)
+        self.log_commands(command, command)
         self.command_edit.clear()
 
-    def execute_commands(self, descriptor, commands):
+    def log_commands(self, descriptor, commands, silent_output=False):
         self.output_area.appendPlainText(f"> {descriptor}")
 
-        try:
-            output = str(eval(commands))
-        except Exception as e:
-            output = str(e)
+        res, err = self.execute(commands)
 
-        self.output_area.appendPlainText(output + "\n")
+        if not silent_output or err != None:
+            self.output_area.appendPlainText(f"{res}\n")
+
+        return res, err
 
     def load_data(self):
         try:
@@ -144,7 +149,7 @@ class MacroApplication(QMainWindow):
         return button
 
     def run_macro(self, macro):
-        self.execute_commands(f'Running "{macro.name}"', macro.commands)
+        self.log_commands(f'Running "{macro.name}"', macro.commands)
 
     def edit_macro(self, macro):
         macro_diaoutput = MacroEditDialog(macro)
@@ -254,3 +259,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
