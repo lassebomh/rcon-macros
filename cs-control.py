@@ -1,121 +1,179 @@
 import sys
 import json
-import valve.rcon
+from PyQt6.QtCore import *
+from PyQt6.QtWidgets import *
+from PyQt6.QtGui import *
 
-from PyQt6.QtWidgets import QApplication, QWidget, QFormLayout, QDialogButtonBox, QDialog, QTextEdit, QGroupBox, QInputDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QPlainTextEdit, QMessageBox, QSpacerItem, QSizePolicy, QStyleFactory, QStyle
-from PyQt6.QtCore import QFile, QIODevice, QSize, Qt
-
-class MacroApplication(QWidget):
+class MacroApplication(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Macro Application")
-        self.setMinimumWidth(600)
+        self.macro_menu_items = {}
+        self.macro_buttons = {}
 
-        self.layout = QHBoxLayout()
+        self.init_ui()
 
-        self.macro_group = QGroupBox("Macros")
-        self.macro_group.setMinimumWidth(240)
-        self.macro_layout = QVBoxLayout()
-        self.macro_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+    def init_ui(self):
 
-        self.macro_list = QVBoxLayout()
-        self.load_settings()
+        QApplication.setStyle(QStyleFactory.create('fusion'))
+        QApplication.setPalette(QApplication.style().standardPalette())
 
-        self.add_macro_button = QPushButton("Create New Macro")
-        self.add_macro_button.clicked.connect(self.create_macro)
+        self.setWindowTitle("Macro App")
 
-        self.macro_layout.addLayout(self.macro_list)
-        self.macro_layout.addWidget(self.add_macro_button)
-        self.macro_group.setLayout(self.macro_layout)
+        self.create_menu_bar()
+        self.create_main_widget()
 
-        self.layout.addWidget(self.macro_group)
+    def create_menu_bar(self):
+        menu_bar = QMenuBar()
+        connection_menu = QMenu("Connection", menu_bar)
+        connection_menu.addAction("Edit", self.edit_connection)
+        menu_bar.addMenu(connection_menu)
 
-        self.run_command_group = QGroupBox("Run command")
-        self.run_command_layout = QVBoxLayout()
+        self.macros_menu = QMenu("Macros", menu_bar)
+        self.macros_menu.addAction("New macro", self.new_macro)
+        self.macros_menu.addSeparator()
+        menu_bar.addMenu(self.macros_menu)
+
+        self.setMenuBar(menu_bar)
+
+    def create_main_widget(self):
+        main_widget = QWidget()
+        main_layout = QVBoxLayout()
+
+        self.macros_group = QFrame()
+        self.macros_layout = QVBoxLayout()
+        self.macros_group.setLayout(self.macros_layout)
+        main_layout.addWidget(self.macros_group)
+
+        self.output_group = QGroupBox("Output")
+        output_layout = QVBoxLayout()
 
         self.command_edit = QLineEdit()
-        self.command_edit.returnPressed.connect(self.run_single_line_command)
+        self.command_edit.setPlaceholderText("Run command...")
+        self.command_edit.returnPressed.connect(self.execute_single_command)
+        output_layout.addWidget(self.command_edit)
 
-        self.run_command_layout.addWidget(self.command_edit)
+        self.output_area = QPlainTextEdit()
+        self.output_area.setReadOnly(True)
+        output_layout.addWidget(self.output_area)
+        self.output_group.setLayout(output_layout)
 
-        self.output_box = QTextEdit()
-        self.output_box.setReadOnly(True)
+        main_layout.addWidget(self.output_group)
 
-        self.run_command_layout.addWidget(self.output_box)
+        main_widget.setLayout(main_layout)
+        self.setCentralWidget(main_widget)
 
-        self.run_command_group.setLayout(self.run_command_layout)
-
-        self.layout.addWidget(self.run_command_group)
-
-        self.setLayout(self.layout)
-
-    def run_single_line_command(self):
-        command = self.command_edit.text().strip()
+    def execute_single_command(self):
+        command = self.command_edit.text()
+        self.execute_commands(command, command)
         self.command_edit.clear()
+
+    def execute_commands(self, descriptor, commands):
+        self.output_area.appendPlainText(f"> {descriptor}")
+
         try:
-            output = eval(command)
-            self.output_box.append(f"> {command}\n{output}\n")
+            output = str(eval(commands))
         except Exception as e:
-            self.output_box.append(f"> {command}\nError: {str(e)}\n")
+            output = str(e)
 
-    def create_macro(self):
-        macro = Macro(self)
-        self.macro_list.addWidget(macro)
-        self.save_settings()
+        self.output_area.appendPlainText(output + "\n")
 
-    def load_settings(self):
+    def load_data(self):
         try:
-            with open("settings.json", "r") as file:
-                settings = json.load(file)
-                self.hostname = settings["hostname"]
-                self.port = settings["port"]
-                self.password = settings["password"]
-
-                for macro in settings["macros"]:
-                    self.macro_list.addWidget(Macro(self, macro["name"], macro["commands"]))
-
+            with open("data.json", "r") as file:
+                data = json.load(file)
+                self.hostname = data["hostname"]
+                self.port = data["port"]
+                self.password = data["password"]
+                self.macros = [Macro(macro["name"], macro["commands"]) for macro in data["macros"]]
+                for macro in self.macros:
+                    self.add_macro_menu_item(macro)
+                    self.add_macro_button(macro)
+            return True
         except FileNotFoundError:
-            settings_dialog = SettingsDialog(self)
-            result = settings_dialog.exec()
+            self.hostname = ""
+            self.port = 0
+            self.password = ""
+            self.macros = []
+            return False
 
-            if result == QDialog.DialogCode.Accepted:
-                self.hostname = settings_dialog.hostname_edit.text()
-                self.port = int(settings_dialog.port_edit.text())
-                self.password = settings_dialog.password_edit.text()
-                self.save_settings()
-            else:
-                sys.exit()
-
-    def save_settings(self):
-        settings = {
+    def save_data(self):
+        data = {
             "hostname": self.hostname,
             "port": self.port,
             "password": self.password,
-            "macros": []
+            "macros": [{"name": macro.name, "commands": macro.commands} for macro in self.macros]
         }
+        with open("data.json", "w") as file:
+            json.dump(data, file, indent=4)
 
-        for i in range(self.macro_list.count()):
-            macro = self.macro_list.itemAt(i).widget()
-            settings["macros"].append({"name": macro.name, "commands": macro.commands})
+    def edit_connection(self):
+        connection_diaoutput = EditConnectionDialog(self)
+        connection_diaoutput.hostname_edit.setText(self.hostname)
+        connection_diaoutput.port_edit.setText(str(self.port))
+        connection_diaoutput.password_edit.setText(self.password)
+        if connection_diaoutput.exec() == QDialog.DialogCode.Accepted:
+            self.hostname = connection_diaoutput.hostname_edit.text()
+            self.port = int(connection_diaoutput.port_edit.text())
+            self.password = connection_diaoutput.password_edit.text()
+            self.save_data()
 
-        with open("settings.json", "w") as file:
-            json.dump(settings, file)
+    def new_macro(self):
+        macro = Macro("", "")
+        macro_diaoutput = MacroEditDialog(macro)
+        if macro_diaoutput.exec() == QMessageBox.StandardButton.Ok:
+            macro.name = macro_diaoutput.name_edit.text()
+            macro.commands = macro_diaoutput.commands_edit.toPlainText()
+            self.macros.append(macro)
+            self.add_macro_menu_item(macro)
+            self.add_macro_button(macro)
+            self.save_data()
 
-    def prompt_settings(self):
-        settings_dialog = SettingsDialog(self)
-        result = settings_dialog.exec()
+    def add_macro_menu_item(self, macro):
+        macro_menu = QMenu(macro.name, self.macros_menu)
+        macro_menu.addAction("Edit", lambda: self.edit_macro(macro))
+        macro_menu.addAction("Delete", lambda: self.delete_macro(macro))
+        self.macros_menu.addMenu(macro_menu)
+        self.macro_menu_items[macro.name] = macro_menu
 
-        if result == QDialog.DialogCode.Accepted:
-            return settings_dialog.hostname_edit.text(), int(settings_dialog.port_edit.text()), settings_dialog.password_edit.text()
-        else:
-            sys.exit()
+    def add_macro_button(self, macro):
+        button = QPushButton(macro.name)
+        button.clicked.connect(lambda: self.run_macro(macro))
+        self.macros_layout.addWidget(button)
+        self.macro_buttons[macro.name] = button
+        return button
 
-class SettingsDialog(QDialog):
+    def run_macro(self, macro):
+        self.execute_commands(f'Running "{macro.name}"', macro.commands)
+
+    def edit_macro(self, macro):
+        macro_diaoutput = MacroEditDialog(macro)
+        if macro_diaoutput.exec() == QMessageBox.StandardButton.Ok:
+            old_name = macro.name
+            macro.name = macro_diaoutput.name_edit.text()
+            macro.commands = macro_diaoutput.commands_edit.toPlainText()
+            self.save_data()
+
+            self.macro_menu_items[old_name].setTitle(macro.name)
+            self.macro_buttons[old_name].setText(macro.name)
+            self.macro_menu_items[macro.name] = self.macro_menu_items.pop(old_name)
+            self.macro_buttons[macro.name] = self.macro_buttons.pop(old_name)
+
+    def delete_macro(self, macro):
+        self.macros.remove(macro)
+        self.save_data()
+
+        self.macros_menu.removeAction(self.macro_menu_items[macro.name].menuAction())
+        self.macro_buttons[macro.name].setParent(None)
+        del self.macro_menu_items[macro.name]
+        del self.macro_buttons[macro.name]
+
+
+class EditConnectionDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("Enter Hostname, Port, and Password")
+        self.setWindowTitle("Setup connection")
 
         self.form_layout = QFormLayout()
 
@@ -140,76 +198,17 @@ class SettingsDialog(QDialog):
         self.setLayout(self.layout)
 
     def validate_inputs(self):
-        # TODO: Make a dry call to the server to check the connection
-
         if self.hostname_edit.text() and self.port_edit.text().isdigit() and self.password_edit.text():
             self.accept()
         else:
             QMessageBox.warning(self, "Error", "Please enter valid hostname, port, and password.")
 
-
-class Macro(QWidget):
-    def __init__(self, parent, name="New Macro", commands=""):
-        super().__init__(parent)
-
-        self.parent_app = parent
+class Macro:
+    def __init__(self, name, commands):
         self.name = name
         self.commands = commands
 
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self.run_button = QPushButton(self.name)
-        self.run_button.clicked.connect(self.run_macro)
-
-        self.edit_button = QPushButton("Edit")
-        self.edit_button.setFixedWidth(40)
-        self.edit_button.clicked.connect(self.edit_macro)
-
-        self.delete_button = QPushButton()
-        self.delete_button.clicked.connect(self.delete_macro)
-        self.delete_button.setFixedWidth(25)
-
-        pixmapi = QStyle.StandardPixmap.SP_DialogDiscardButton
-        icon = self.style().standardIcon(pixmapi)
-        self.delete_button.setIcon(icon)
-
-        layout.addWidget(self.run_button)
-        layout.addWidget(self.edit_button)
-        layout.addWidget(self.delete_button)
-
-        self.setLayout(layout)
-
-    def run_macro(self):
-        try:
-            output = eval(self.commands)
-            self.parent_app.output_box.append(f'> Execute "{self.name}"\n{output}\n')
-        except Exception as e:
-            self.parent_app.output_box.append(f'> Execute "{self.name}"\nError: {str(e)}\n')
-
-    def edit_macro(self):
-        edit_dialog = EditDialog(self)
-        result = edit_dialog.exec()
-
-        if result == QMessageBox.StandardButton.Ok:
-            self.name = edit_dialog.name_edit.text()
-            self.commands = edit_dialog.commands_edit.toPlainText()
-
-            self.run_button.setText(self.name)
-            self.parent_app.save_settings()
-
-    def delete_macro(self):
-        reply = QMessageBox.question(self, 'Delete Macro', 'Are you sure you want to delete this macro?',
-                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.Yes:
-            parent_layout = self.parent_app.macro_layout
-
-            parent_layout.removeWidget(self)
-            self.deleteLater()
-
-            self.parent_app.save_settings()
-
-class EditDialog(QMessageBox):
+class MacroEditDialog(QMessageBox):
     def __init__(self, macro):
         super().__init__()
 
@@ -228,20 +227,30 @@ class EditDialog(QMessageBox):
         self.commands_edit.setMinimumSize(QSize(400, 300))
         layout.addWidget(self.commands_edit)
 
-        layout.addWidget(QLabel("Warning: The commands will be executed as is. Be cautious while editing the commands."))
-
         spacer = QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addItem(spacer)
 
         grid_layout = self.layout()
         grid_layout.addLayout(layout, 0, 0, 1, grid_layout.columnCount())
 
-app = QApplication(sys.argv)
 
-QApplication.setStyle(QStyleFactory.create('fusion'))
-QApplication.setPalette(QApplication.style().standardPalette())
+def main():
+    app = QApplication(sys.argv)
+    
+    main_window = MacroApplication()
+    
+    if not main_window.load_data():
+        connection_diaoutput = EditConnectionDialog()
+        if connection_diaoutput.exec() == QDialog.DialogCode.Accepted:
+            main_window.hostname = connection_diaoutput.hostname_edit.text()
+            main_window.port = int(connection_diaoutput.port_edit.text())
+            main_window.password = connection_diaoutput.password_edit.text()
+            main_window.save_data()
+        else:
+            sys.exit(0)
 
-window = MacroApplication()
-window.show()
+    main_window.show()
+    sys.exit(app.exec())
 
-sys.exit(app.exec())
+if __name__ == "__main__":
+    main()
