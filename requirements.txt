@@ -1,0 +1,12 @@
+certifi==2022.12.7
+charset-normalizer==3.1.0
+docopt==0.6.2
+idna==3.4
+monotonic==1.6
+PyQt6==6.5.0
+PyQt6-Qt6==6.5.0
+PyQt6-sip==13.5.0
+python-valve==0.2.1
+requests==2.28.2
+six==1.16.0
+urllib3==1.26.15

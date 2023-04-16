@@ -73,7 +73,7 @@ class MacroApplication(QWidget):
                 self.password = settings["password"]
 
                 for macro in settings["macros"]:
-                    self.macro_list.addWidget(Macro(self, macro["name"], macro["code"]))
+                    self.macro_list.addWidget(Macro(self, macro["name"], macro["commands"]))
 
         except FileNotFoundError:
             settings_dialog = SettingsDialog(self)
@@ -97,7 +97,7 @@ class MacroApplication(QWidget):
 
         for i in range(self.macro_list.count()):
             macro = self.macro_list.itemAt(i).widget()
-            settings["macros"].append({"name": macro.name, "code": macro.code})
+            settings["macros"].append({"name": macro.name, "commands": macro.commands})
 
         with open("settings.json", "w") as file:
             json.dump(settings, file)
@@ -140,6 +140,8 @@ class SettingsDialog(QDialog):
         self.setLayout(self.layout)
 
     def validate_inputs(self):
+        # TODO: Make a dry call to the server to check the connection
+
         if self.hostname_edit.text() and self.port_edit.text().isdigit() and self.password_edit.text():
             self.accept()
         else:
@@ -147,12 +149,12 @@ class SettingsDialog(QDialog):
 
 
 class Macro(QWidget):
-    def __init__(self, parent, name="New Macro", code=""):
+    def __init__(self, parent, name="New Macro", commands=""):
         super().__init__(parent)
 
         self.parent_app = parent
         self.name = name
-        self.code = code
+        self.commands = commands
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -180,7 +182,7 @@ class Macro(QWidget):
 
     def run_macro(self):
         try:
-            output = eval(self.code)
+            output = eval(self.commands)
             self.parent_app.output_box.append(f'> Execute "{self.name}"\n{output}\n')
         except Exception as e:
             self.parent_app.output_box.append(f'> Execute "{self.name}"\nError: {str(e)}\n')
@@ -191,7 +193,7 @@ class Macro(QWidget):
 
         if result == QMessageBox.StandardButton.Ok:
             self.name = edit_dialog.name_edit.text()
-            self.code = edit_dialog.code_edit.toPlainText()
+            self.commands = edit_dialog.commands_edit.toPlainText()
 
             self.run_button.setText(self.name)
             self.parent_app.save_settings()
@@ -221,12 +223,12 @@ class EditDialog(QMessageBox):
         self.name_edit = QLineEdit(macro.name)
         layout.addWidget(self.name_edit)
 
-        layout.addWidget(QLabel("Code:"))
-        self.code_edit = QPlainTextEdit(macro.code)
-        self.code_edit.setMinimumSize(QSize(400, 300))
-        layout.addWidget(self.code_edit)
+        layout.addWidget(QLabel("Commands:"))
+        self.commands_edit = QPlainTextEdit(macro.commands)
+        self.commands_edit.setMinimumSize(QSize(400, 300))
+        layout.addWidget(self.commands_edit)
 
-        layout.addWidget(QLabel("Warning: The code will be executed as is. Be cautious while editing the code."))
+        layout.addWidget(QLabel("Warning: The commands will be executed as is. Be cautious while editing the commands."))
 
         spacer = QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addItem(spacer)
