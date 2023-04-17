@@ -29,7 +29,7 @@ class MacroApplication(QMainWindow):
         QApplication.setStyle(QStyleFactory.create('fusion'))
         QApplication.setPalette(QApplication.style().standardPalette())
 
-        self.setWindowTitle("Macro App")
+        self.setWindowTitle("Macro RCON")
 
         self.create_menu_bar()
         self.create_main_widget()
@@ -50,6 +50,7 @@ class MacroApplication(QMainWindow):
     def create_main_widget(self):
         main_widget = QWidget()
         main_layout = QVBoxLayout()
+        main_widget.setMinimumSize(QSize(300, 500))
 
         self.macros_group = QFrame()
         self.macros_layout = QVBoxLayout()
@@ -93,12 +94,8 @@ class MacroApplication(QMainWindow):
         self.setCentralWidget(main_widget)
 
     def refresh_maps(self, event=None):
-
         if self.maps_model.rowCount() == 0:
-            # res, err = self.log_commands("Fetching all maps", "1", silent_output=True)
-            # res = out
             res, err = self.log_commands("Fetching all maps", "maps *", silent_output=True)
-
             self.maps_model.setStringList(re.findall(MAPS_REGEX, res) if not err else [])
         
     def execute_change_map(self):
@@ -108,7 +105,7 @@ class MacroApplication(QMainWindow):
 
     def execute(self, commands):
         try:
-            with RCON(self.hostname, self.port) as rcon:
+            with RCON((self.hostname, self.port), self.password) as rcon:
                 return rcon.execute(commands), None
             # return eval(commands), None
         except Exception as error:
