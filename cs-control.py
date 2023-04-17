@@ -2,6 +2,7 @@ import sys, json, re
 from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
+from valve.rcon import RCON
 
 MAPS_REGEX = re.compile(r'PENDING:\s*\(fs\)\s*(\w+).bsp')
 
@@ -107,7 +108,9 @@ class MacroApplication(QMainWindow):
 
     def execute(self, commands):
         try:
-            return eval(commands), None
+            with RCON(self.hostname, self.port) as rcon:
+                return rcon.execute(commands), None
+            # return eval(commands), None
         except Exception as error:
             return f"Error: {error}", error
 
