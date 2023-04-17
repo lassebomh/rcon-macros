@@ -1,15 +1,11 @@
+
 import sys, json, re
+import a2s
+
 from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
 from valve.rcon import *
-import a2s
-
-# address = ('172.99.189.25', 35400)
-# print(a2s.info(address).map_name)
-# print(a2s.players(address))
-
-# exit()
 
 MAPS_REGEX = re.compile(r'PENDING:\s*\(fs\)\s*(\w+).bsp')
 
@@ -92,23 +88,6 @@ class MacroApplication(QMainWindow):
         self.macros_group.setLayout(self.macros_layout)
         main_layout.addWidget(self.macros_group)
 
-        # Log GroupBox
-        self.output_group = QGroupBox("Log")
-        output_layout = QVBoxLayout()
-
-        self.command_edit = QLineEdit()
-        self.command_edit.setPlaceholderText("Run command...")
-        self.command_edit.returnPressed.connect(self.log_single_command)
-        output_layout.addWidget(self.command_edit)
-
-        self.output_area = QPlainTextEdit()
-        self.output_area.setFont(QFont("monospace", 8))
-        self.output_area.setReadOnly(True)
-        output_layout.addWidget(self.output_area)
-        self.output_group.setLayout(output_layout)
-
-        main_layout.addWidget(self.output_group)
-
         # Maps GroupBox
         self.change_maps_group = QGroupBox("Maps")
         change_maps_layout = QHBoxLayout()
@@ -127,6 +106,24 @@ class MacroApplication(QMainWindow):
         change_maps_layout.addWidget(self.load_map_button)
         self.change_maps_group.setLayout(change_maps_layout)
         main_layout.addWidget(self.change_maps_group)
+
+
+        # Log GroupBox
+        self.output_group = QGroupBox("Log")
+        output_layout = QVBoxLayout()
+
+        self.command_edit = QLineEdit()
+        self.command_edit.setPlaceholderText("Run command...")
+        self.command_edit.returnPressed.connect(self.log_single_command)
+        output_layout.addWidget(self.command_edit)
+
+        self.output_area = QPlainTextEdit()
+        self.output_area.setFont(QFont("monospace", 8))
+        self.output_area.setReadOnly(True)
+        output_layout.addWidget(self.output_area)
+        self.output_group.setLayout(output_layout)
+
+        main_layout.addWidget(self.output_group)
 
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
@@ -164,8 +161,6 @@ class MacroApplication(QMainWindow):
         self.update_connection_info()
 
     def update_connection_info(self):
-        print("Updating....")
-
         if self.rcon != None:
 
             info = a2s.info((self.hostname, self.port))
@@ -207,7 +202,7 @@ class MacroApplication(QMainWindow):
             return res, None
         except Exception as error:
             self.close_connection()
-            return f"Error: {error}", error
+            return str(error), error
 
     def log_single_command(self):
         command = self.command_edit.text()
@@ -402,6 +397,7 @@ def main():
             main_window.port = int(connection_diaoutput.port_edit.text())
             main_window.password = connection_diaoutput.password_edit.text()
             main_window.save_data()
+            main_window.open_connection()
         else:
             sys.exit(0)
 
