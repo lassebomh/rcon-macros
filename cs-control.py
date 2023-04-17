@@ -106,7 +106,7 @@ class MacroApplication(QMainWindow):
     def execute(self, commands):
         try:
             with RCON((self.hostname, self.port), self.password) as rcon:
-                return rcon.execute(commands), None
+                return rcon.execute(commands).text, None
             # return eval(commands), None
         except Exception as error:
             return f"Error: {error}", error
