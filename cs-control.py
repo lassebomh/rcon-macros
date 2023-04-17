@@ -161,7 +161,8 @@ class MacroApplication(QMainWindow):
         self.update_connection_info()
 
     def update_connection_info(self):
-        if self.rcon != None:
+        try:
+            if self.rcon == None: raise Exception()
 
             info = a2s.info((self.hostname, self.port))
 
@@ -173,7 +174,7 @@ class MacroApplication(QMainWindow):
 
             self.connection_group.setEnabled(True)
 
-        else:
+        except Exception as e:
             self.server_name_label.setText("------------")
             self.current_map_label.setText("Unknown")
             self.players_label.setText("Unknown")
@@ -198,7 +199,7 @@ class MacroApplication(QMainWindow):
         try:
             if self.rcon == None: raise Exception("Error: Not connected to server")
             res = self.rcon.execute(commands).text
-            res = "\n".join(filter(lambda s: not s.startswith("L "), res.split("\n")))
+            res = "\n".join(filter(lambda s: not s.startswith("L "), res.split("\n"))).strip()
             return res, None
         except Exception as error:
             self.close_connection()
