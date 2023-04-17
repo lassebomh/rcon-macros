@@ -25,7 +25,8 @@ class MacroApplication(QMainWindow):
 
         self.load_data()
 
-        self.reconnect()
+        self.open_connection()
+
 
     def init_ui(self):
 
@@ -37,11 +38,15 @@ class MacroApplication(QMainWindow):
         self.create_menu_bar()
         self.create_main_widget()
 
+        self.update_timer = QTimer(self)
+        self.update_timer.timeout.connect(self.update_connection_info)
+        self.update_timer.start(10000)
+
     def create_menu_bar(self):
         menu_bar = QMenuBar()
         connection_menu = QMenu("Connection", menu_bar)
         connection_menu.addAction("Edit", self.edit_connection)
-        connection_menu.addAction("Connect", self.reconnect)
+        connection_menu.addAction("Connect", self.open_connection)
         connection_menu.addAction("Disconnect", self.close_connection)
         menu_bar.addMenu(connection_menu)
 
@@ -69,6 +74,9 @@ class MacroApplication(QMainWindow):
 
         self.players_label = QLabel()
         connection_layout.addRow("Players:", self.players_label)
+
+        self.ping_label = QLabel()
+        connection_layout.addRow("Ping:", self.ping_label)
 
         self.connection_status_label = QLabel()
         connection_layout.addRow("Status:", self.connection_status_label)
@@ -105,7 +113,7 @@ class MacroApplication(QMainWindow):
         self.change_maps_group = QGroupBox("Maps")
         change_maps_layout = QHBoxLayout()
         self.change_maps_edit = QLineEdit()
-        self.change_maps_edit.setPlaceholderText("Map name...")
+        self.change_maps_edit.setPlaceholderText("Search maps...")
 
         self.maps_model = QStringListModel()
         self.maps_completer = QCompleter(self.maps_model, self)
@@ -123,17 +131,24 @@ class MacroApplication(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
-    def close_connection(self):
-        self.output_area.appendPlainText(f"> Closing connection...")
+    def restart_connection(self):
+        self.close_connection(descriptor=None)
+        self.open_connection(descriptor="Reconnecting...")
+
+    def close_connection(self, descriptor="Connection closed"):
+        if descriptor != None:
+            self.output_area.appendPlainText(f"> {descriptor}")
 
         if self.rcon != None:
             self.rcon.close()
             self.rcon = None
 
-        self.update_connection_group()
+        self.update_connection_info()
 
-    def reconnect(self):
-        self.output_area.appendPlainText(f"> Trying to connect...")
+    def open_connection(self, descriptor="Connecting..."):
+        if descriptor:
+            self.output_area.appendPlainText(f"> {descriptor}")
+            QCoreApplication.processEvents()
 
         try:
             self.rcon = RCON((self.hostname, self.port), self.password)
@@ -146,9 +161,11 @@ class MacroApplication(QMainWindow):
             self.output_area.appendPlainText(str(e))
             self.close_connection()
             
-        self.update_connection_group()
+        self.update_connection_info()
 
-    def update_connection_group(self):
+    def update_connection_info(self):
+        print("Updating....")
+
         if self.rcon != None:
 
             info = a2s.info((self.hostname, self.port))
@@ -156,6 +173,7 @@ class MacroApplication(QMainWindow):
             self.server_name_label.setText(info.server_name)
             self.current_map_label.setText(info.map_name)
             self.players_label.setText(f"{info.player_count}/{info.max_players}")
+            self.ping_label.setText(f"{info.ping*1000:.0f}")
             self.connection_status_label.setText("Online")
 
             self.connection_group.setEnabled(True)
@@ -164,20 +182,22 @@ class MacroApplication(QMainWindow):
             self.server_name_label.setText("------------")
             self.current_map_label.setText("Unknown")
             self.players_label.setText("Unknown")
+            self.ping_label.setText("Unknown")
             self.connection_status_label.setText("Failed")
 
             self.connection_group.setEnabled(False)
 
 
     def refresh_maps(self, event=None):
-        if self.maps_model.rowCount() == 0:
-            res, err = self.log_commands("Caching all maps", "maps *", silent_output=True)
-            self.maps_model.setStringList(re.findall(MAPS_REGEX, res) if not err else [])
+        res, err = self.log_commands("Caching all maps", "maps *", silent_output=True)
+        self.maps_model.setStringList(re.findall(MAPS_REGEX, res) if not err else [])
         
     def execute_change_map(self):
-        command = f"map {self.change_maps_edit.text()}"
-        self.log_commands(command, command)
-        self.change_maps_edit.clear()    
+        _map = self.change_maps_edit.text()
+        command = f"map {_map}"
+        self.log_commands(f'Changing map to "{_map}"', command, silent_output=True)
+        self.change_maps_edit.clear()
+        self.restart_connection()
 
     def execute(self, commands):
         try:
@@ -194,12 +214,13 @@ class MacroApplication(QMainWindow):
         self.log_commands(command, command)
         self.command_edit.clear()
 
-    def log_commands(self, descriptor, commands, silent_output=False):
+    def log_commands(self, descriptor, commands, silent_output=False, **kwargs):
         self.output_area.appendPlainText(f"> {descriptor}")
+        QCoreApplication.processEvents()
 
-        res, err = self.execute(commands)
+        res, err = self.execute(commands, **kwargs)
 
-        if not silent_output or err != None:
+        if not silent_output:
             self.output_area.appendPlainText(f"{res}\n")
 
         return res, err
@@ -251,7 +272,7 @@ class MacroApplication(QMainWindow):
             self.port = int(connection_diaoutput.port_edit.text())
             self.password = connection_diaoutput.password_edit.text()
             self.save_data()
-            self.reconnect()
+            self.open_connection()
 
     def new_macro(self):
         macro = Macro("", "")
