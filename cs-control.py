@@ -3,6 +3,17 @@ from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
 
+MAPS_REGEX = re.compile(r'PENDING:\s*\(fs\)\s*(\w+).bsp')
+
+class CustomLineEdit(QLineEdit):
+    def __init__(self, focusIn, *args, **kwargs):
+        self.focusIn = focusIn
+        super().__init__(*args, **kwargs)
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self.focusIn()
+
 class MacroApplication(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -59,8 +70,40 @@ class MacroApplication(QMainWindow):
 
         main_layout.addWidget(self.output_group)
 
+        self.change_maps_group = QGroupBox("Maps")
+        change_maps_layout = QHBoxLayout()
+        self.change_maps_edit = CustomLineEdit(focusIn=self.refresh_maps)
+        self.change_maps_edit.setPlaceholderText("Map name...")
+
+        self.maps_model = QStringListModel()
+        self.maps_completer = QCompleter(self.maps_model, self)
+        self.maps_completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        self.change_maps_edit.setCompleter(self.maps_completer)
+
+        self.load_map_button = QPushButton("Load")
+        self.load_map_button.clicked.connect(self.execute_change_map)
+
+        change_maps_layout.addWidget(self.change_maps_edit)
+        change_maps_layout.addWidget(self.load_map_button)
+        self.change_maps_group.setLayout(change_maps_layout)
+        main_layout.addWidget(self.change_maps_group)
+
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
+
+    def refresh_maps(self, event=None):
+
+        if self.maps_model.rowCount() == 0:
+            # res, err = self.log_commands("Fetching all maps", "1", silent_output=True)
+            # res = out
+            res, err = self.log_commands("Fetching all maps", "maps *", silent_output=True)
+
+            self.maps_model.setStringList(re.findall(MAPS_REGEX, res) if not err else [])
+        
+    def execute_change_map(self):
+        command = f"map {self.change_maps_edit.text()}"
+        self.log_commands(command, command)
+        self.change_maps_edit.clear()    
 
     def execute(self, commands):
         try:
