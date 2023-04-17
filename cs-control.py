@@ -2,18 +2,16 @@ import sys, json, re
 from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
-from valve.rcon import RCON
+from valve.rcon import *
+import a2s
+
+# address = ('172.99.189.25', 35400)
+# print(a2s.info(address).map_name)
+# print(a2s.players(address))
+
+# exit()
 
 MAPS_REGEX = re.compile(r'PENDING:\s*\(fs\)\s*(\w+).bsp')
-
-class CustomLineEdit(QLineEdit):
-    def __init__(self, focusIn, *args, **kwargs):
-        self.focusIn = focusIn
-        super().__init__(*args, **kwargs)
-
-    def focusInEvent(self, event):
-        super().focusInEvent(event)
-        self.focusIn()
 
 class MacroApplication(QMainWindow):
     def __init__(self):
@@ -21,8 +19,13 @@ class MacroApplication(QMainWindow):
 
         self.macro_menu_items = {}
         self.macro_buttons = {}
+        self.rcon = None
 
         self.init_ui()
+
+        self.load_data()
+
+        self.reconnect()
 
     def init_ui(self):
 
@@ -38,6 +41,8 @@ class MacroApplication(QMainWindow):
         menu_bar = QMenuBar()
         connection_menu = QMenu("Connection", menu_bar)
         connection_menu.addAction("Edit", self.edit_connection)
+        connection_menu.addAction("Connect", self.reconnect)
+        connection_menu.addAction("Disconnect", self.close_connection)
         menu_bar.addMenu(connection_menu)
 
         self.macros_menu = QMenu("Macros", menu_bar)
@@ -50,14 +55,37 @@ class MacroApplication(QMainWindow):
     def create_main_widget(self):
         main_widget = QWidget()
         main_layout = QVBoxLayout()
-        main_widget.setMinimumSize(QSize(300, 500))
+        main_widget.setMinimumSize(QSize(400, 500))
 
-        self.macros_group = QFrame()
+        # Connection GroupBox
+        self.connection_group = QGroupBox()
+        connection_layout = QFormLayout()
+
+        self.server_name_label = QLabel()
+        connection_layout.addRow("Server:", self.server_name_label)
+
+        self.current_map_label = QLabel()
+        connection_layout.addRow("Map:", self.current_map_label)
+
+        self.players_label = QLabel()
+        connection_layout.addRow("Players:", self.players_label)
+
+        self.connection_status_label = QLabel()
+        connection_layout.addRow("Status:", self.connection_status_label)
+
+        self.connection_group.setLayout(connection_layout)
+
+        main_layout.addWidget(self.connection_group)
+        
+
+        # Macros GroupBox
+        self.macros_group = QGroupBox("Macros")
         self.macros_layout = QVBoxLayout()
         self.macros_group.setLayout(self.macros_layout)
         main_layout.addWidget(self.macros_group)
 
-        self.output_group = QGroupBox("Output")
+        # Log GroupBox
+        self.output_group = QGroupBox("Log")
         output_layout = QVBoxLayout()
 
         self.command_edit = QLineEdit()
@@ -66,15 +94,17 @@ class MacroApplication(QMainWindow):
         output_layout.addWidget(self.command_edit)
 
         self.output_area = QPlainTextEdit()
+        self.output_area.setFont(QFont("monospace", 8))
         self.output_area.setReadOnly(True)
         output_layout.addWidget(self.output_area)
         self.output_group.setLayout(output_layout)
 
         main_layout.addWidget(self.output_group)
 
+        # Maps GroupBox
         self.change_maps_group = QGroupBox("Maps")
         change_maps_layout = QHBoxLayout()
-        self.change_maps_edit = CustomLineEdit(focusIn=self.refresh_maps)
+        self.change_maps_edit = QLineEdit()
         self.change_maps_edit.setPlaceholderText("Map name...")
 
         self.maps_model = QStringListModel()
@@ -93,9 +123,55 @@ class MacroApplication(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
+    def close_connection(self):
+        self.output_area.appendPlainText(f"> Closing connection...")
+
+        if self.rcon != None:
+            self.rcon.close()
+            self.rcon = None
+
+        self.update_connection_group()
+
+    def reconnect(self):
+        self.output_area.appendPlainText(f"> Trying to connect...")
+
+        try:
+            self.rcon = RCON((self.hostname, self.port), self.password)
+            self.rcon.connect()
+            self.rcon.authenticate()
+            self.output_area.appendPlainText(f"> Connection established")
+            self.refresh_maps()
+        except Exception as e:
+            self.output_area.appendPlainText(f"> Connection failed")
+            self.output_area.appendPlainText(str(e))
+            self.close_connection()
+            
+        self.update_connection_group()
+
+    def update_connection_group(self):
+        if self.rcon != None:
+
+            info = a2s.info((self.hostname, self.port))
+
+            self.server_name_label.setText(info.server_name)
+            self.current_map_label.setText(info.map_name)
+            self.players_label.setText(f"{info.player_count}/{info.max_players}")
+            self.connection_status_label.setText("Online")
+
+            self.connection_group.setEnabled(True)
+
+        else:
+            self.server_name_label.setText("------------")
+            self.current_map_label.setText("Unknown")
+            self.players_label.setText("Unknown")
+            self.connection_status_label.setText("Failed")
+
+            self.connection_group.setEnabled(False)
+
+
     def refresh_maps(self, event=None):
         if self.maps_model.rowCount() == 0:
-            res, err = self.log_commands("Fetching all maps", "maps *", silent_output=True)
+            res, err = self.log_commands("Caching all maps", "maps *", silent_output=True)
             self.maps_model.setStringList(re.findall(MAPS_REGEX, res) if not err else [])
         
     def execute_change_map(self):
@@ -105,10 +181,12 @@ class MacroApplication(QMainWindow):
 
     def execute(self, commands):
         try:
-            with RCON((self.hostname, self.port), self.password) as rcon:
-                return rcon.execute(commands).text, None
-            # return eval(commands), None
+            if self.rcon == None: raise Exception("Error: Not connected to server")
+            res = self.rcon.execute(commands).text
+            res = "\n".join(filter(lambda s: not s.startswith("L "), res.split("\n")))
+            return res, None
         except Exception as error:
+            self.close_connection()
             return f"Error: {error}", error
 
     def log_single_command(self):
@@ -130,6 +208,14 @@ class MacroApplication(QMainWindow):
         try:
             with open("data.json", "r") as file:
                 data = json.load(file)
+
+                if hasattr(self, 'macros'):
+                    for macro in self.macros:
+                        self.macros_menu.removeAction(self.macro_menu_items[macro.name].menuAction())
+                        self.macro_buttons[macro.name].setParent(None)
+                        del self.macro_menu_items[macro.name]
+                        del self.macro_buttons[macro.name]
+
                 self.hostname = data["hostname"]
                 self.port = data["port"]
                 self.password = data["password"]
@@ -165,6 +251,7 @@ class MacroApplication(QMainWindow):
             self.port = int(connection_diaoutput.port_edit.text())
             self.password = connection_diaoutput.password_edit.text()
             self.save_data()
+            self.reconnect()
 
     def new_macro(self):
         macro = Macro("", "")
