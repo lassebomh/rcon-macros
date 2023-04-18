@@ -3,7 +3,7 @@
 
 Macro RCON is an application designed for managing Source game servers, such as Counter-Strike: Global Offensive (CSGO) servers. The application provides an basic interface to execute custom macros and commands, view server information, and manage your server efficiently.
 
-![Main Application Screenshot](screenshots/main.png)
+![RCON Macros for CSGO](screenshots/main.png)
 
 ## Features
 
@@ -13,7 +13,7 @@ Macro RCON is an application designed for managing Source game servers, such as 
 - Autocomplete map names for quick map changes
 - Automatically save and load macros and connection settings from a JSON file
 
-![Macro Edit Screenshot](screenshots/edit.png)
+![RCON Macro Editing](screenshots/edit.png)
 
 ## Getting Started
 
