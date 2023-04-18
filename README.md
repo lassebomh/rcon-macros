@@ -13,7 +13,7 @@ Macro RCON is an application designed for managing Source game servers, such as 
 - Autocomplete map names for quick map changes
 - Automatically save and load macros and connection settings from a JSON file
 
-![Macro Edit Screenshot](screenshots/maps.png)
+![Macro Edit Screenshot](screenshots/edit.png)
 
 ## Getting Started
 
@@ -24,8 +24,6 @@ To get started with Macro RCON, follow these steps:
 1. If you're on Ubuntu you might need to run `sudo apt install libxcb-cursor0`
 1. Run the application by either double-clicking on the `macro-rcon.pyw` or from the terminal with `python macro-rcon.pyw`
 2. Configure your server connection settings (hostname, port, and password) when prompted and you're good to go!.
-
-![Macro Edit Screenshot](screenshots/edit.png)
 
 ## Contributing
 
