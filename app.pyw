@@ -1,3 +1,4 @@
+#!/bin/python3
 
 import sys, json, re
 import a2s
@@ -198,7 +199,7 @@ class MacroApplication(QMainWindow):
     def execute(self, commands):
         try:
             if self.rcon == None: raise Exception("Error: Not connected to server")
-            res = self.rcon.execute(commands).text
+            res = self.rcon.execute("; ".join([c.strip().strip(";") for c in commands.split("\n")])).text
             res = "\n".join(filter(lambda s: not s.startswith("L "), res.split("\n"))).strip()
             return res, None
         except Exception as error:
