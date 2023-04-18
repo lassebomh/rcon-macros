@@ -7,11 +7,11 @@ Macro RCON is an application designed for managing Source game servers, such as 
 
 ## Features
 
-- Create, edit, and delete custom macros to run sets of commands with a single click
-- Execute individual commands in the log area
+- Create, edit, and delete custom macros to run sets of commands with a single click.
+- Execute individual commands in the log area and see the output.
 - View server information, such as current map, players count, and ping.
-- Autocomplete map names for quick map changes
-- Automatically save and load macros and connection settings from a JSON file
+- Autocomplete map names for quick map changes.
+- Automatically save and load macros and connection settings from a JSON file.
 
 ![Editing a RCON Macro](screenshots/edit.png)
 
@@ -20,10 +20,10 @@ Macro RCON is an application designed for managing Source game servers, such as 
 To get started with Macro RCON, follow these steps:
 
 1. Clone the repo.
-1. Install the dependencies with `pip install -r requirements.txt` or `pip install PyQt6 python-a2s python-valve`
-1. If you're on Ubuntu you might need to run `sudo apt install libxcb-cursor0`
-1. Run the application by either double-clicking on the `app.pyw` or from the terminal with `python app.pyw`
-2. Configure your server connection settings (hostname, port, and password) when prompted and you're good to go!.
+1. Install the dependencies with `pip install -r requirements.txt` or `pip install PyQt6 python-a2s python-valve`.
+1. If you're on Ubuntu you might need to run `sudo apt install libxcb-cursor0`.
+1. Run the application by either double-clicking on the `app.pyw` or from the terminal with `python app.pyw`.
+1. Configure your server connection settings (hostname, port, and password) when prompted and you're good to go!
 
 ## Contributing
 
