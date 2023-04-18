@@ -13,6 +13,8 @@ Macro RCON is an application designed for managing Source game servers, such as 
 - Autocomplete map names for quick map changes
 - Automatically save and load macros and connection settings from a JSON file
 
+![Macro Edit Screenshot](screenshots/maps.png)
+
 ## Getting Started
 
 To get started with Macro RCON, follow these steps:
